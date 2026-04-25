@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+env/
+.devcontainer/
+
+# Flutter
+flutter_sdk/
+flutter_app/build/
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/.pub-cache/
+flutter_app/.pub/
+flutter_app/android/app/build.gradle
+flutter_app/ios/Podfile.lock
+*.log
+
+# OS
+.DS_Store
+.vscode/
+.idea/
