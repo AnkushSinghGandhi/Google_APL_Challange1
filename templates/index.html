@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EventFlow AI — Agentic Crowd Orchestrator</title>
+    <meta name="description"
+        content="AI-powered stadium crowd management using Gemini agentic reasoning and gamification">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Emergency Overlay -->
+    <div class="emergency-overlay" id="emergency-overlay">
+        <div class="emergency-content">
+            <div class="emergency-siren">🚨</div>
+            <h2>EMERGENCY EVACUATION</h2>
+            <p>All fans directed to nearest exits</p>
+            <p class="emergency-sub">Priority exit passes issued</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header" id="main-header">
+        <div class="header-left">
+            <div class="logo">
+                <div class="logo-ring">
+                    <svg width="36" height="36" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="16" fill="none" stroke="url(#logoGrad)" stroke-width="2"
+                            stroke-dasharray="80 20" class="logo-spin" />
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#4285f4" />
+                                <stop offset="50%" stop-color="#a855f7" />
+                                <stop offset="100%" stop-color="#ea4335" />
+                            </linearGradient>
+                        </defs>
+                        <text x="18" y="22" text-anchor="middle" font-size="14" fill="white">🏟️</text>
+                    </svg>
+                </div>
+                <div class="logo-text-group">
+                    <span class="logo-text">EventFlow <span class="ai-badge">AI</span></span>
+                    <span class="tagline">Agentic Crowd Orchestrator</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-center">
+            <div class="live-badge"><span class="live-dot"></span> LIVE</div>
+            <div class="phase-controls">
+                <button class="phase-btn active" data-phase="pre_event">
+                    <span class="phase-icon">🎫</span><span class="phase-label">Pre-Event</span>
+                </button>
+                <button class="phase-btn" data-phase="during_event">
+                    <span class="phase-icon">⚽</span><span class="phase-label">During</span>
+                </button>
+                <button class="phase-btn" data-phase="halftime">
+                    <span class="phase-icon">☕</span><span class="phase-label">Halftime</span>
+                </button>
+                <button class="phase-btn" data-phase="post_event">
+                    <span class="phase-icon">🚪</span><span class="phase-label">Post</span>
+                </button>
+            </div>
+            <button class="btn btn-emergency" id="btn-emergency" title="Activate emergency evacuation">
+                🚨 Emergency
+            </button>
+        </div>
+        <div class="header-right">
+            <div class="stat-chip">
+                <span class="stat-icon">⏱</span>
+                <div class="stat-info">
+                    <span class="stat-label">Tick</span>
+                    <span class="stat-value" id="tick-counter">0</span>
+                </div>
+            </div>
+            <div class="stat-chip" id="density-chip">
+                <span class="stat-icon">📊</span>
+                <div class="stat-info">
+                    <span class="stat-label">Density</span>
+                    <span class="stat-value" id="density-value">0%</span>
+                </div>
+            </div>
+            <div class="stat-chip">
+                <span class="stat-icon">👥</span>
+                <div class="stat-info">
+                    <span class="stat-label">Crowd</span>
+                    <span class="stat-value" id="crowd-count">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="stats-bar-inner">
+            <div class="mini-stat">
+                <span class="mini-stat-dot dot-low"></span>
+                <span class="mini-stat-label">Low</span>
+                <span class="mini-stat-value" id="count-low">0</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-stat-dot dot-medium"></span>
+                <span class="mini-stat-label">Medium</span>
+                <span class="mini-stat-value" id="count-medium">0</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-stat-dot dot-high"></span>
+                <span class="mini-stat-label">High</span>
+                <span class="mini-stat-value" id="count-high">0</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-stat-dot dot-critical"></span>
+                <span class="mini-stat-label">Critical</span>
+                <span class="mini-stat-value" id="count-critical">0</span>
+            </div>
+            <div class="mini-stat-divider"></div>
+            <div class="mini-stat">
+                <span class="mini-stat-icon">🔥</span>
+                <span class="mini-stat-label">Hotspots</span>
+                <span class="mini-stat-value" id="hotspot-count">0</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-stat-icon">🤖</span>
+                <span class="mini-stat-label">AI Actions</span>
+                <span class="mini-stat-value" id="ai-action-count">0</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-stat-icon">🎁</span>
+                <span class="mini-stat-label">Rewards</span>
+                <span class="mini-stat-value" id="reward-count">0</span>
+            </div>
+            <div class="mini-stat-divider"></div>
+            <!-- Density Sparkline -->
+            <div class="mini-stat sparkline-container">
+                <span class="mini-stat-label">Trend</span>
+                <canvas id="density-sparkline" width="100" height="24"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <main class="main-grid">
+        <!-- LEFT: Stadium Map -->
+        <section class="panel stadium-panel">
+            <div class="panel-header">
+                <div class="panel-title-group">
+                    <h2>🗺️ Stadium Digital Twin</h2>
+                    <span class="panel-subtitle">Real-time crowd simulation</span>
+                </div>
+                <div class="panel-actions">
+                    <button class="btn btn-sim" id="btn-simulate" title="Advance simulation by 1 step">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                        Step
+                    </button>
+                    <button class="btn btn-auto" id="btn-auto" title="Auto-run simulation every 2s">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                            <line x1="19" y1="3" x2="19" y2="21" />
+                        </svg>
+                        Auto
+                    </button>
+                </div>
+            </div>
+            <div class="stadium-container">
+                <svg class="stadium-outline" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <linearGradient id="fieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="rgba(52, 168, 83, 0.08)" />
+                            <stop offset="100%" stop-color="rgba(52, 168, 83, 0.02)" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="100" y="60" width="600" height="380" rx="60" fill="none" stroke="rgba(255,255,255,0.04)"
+                        stroke-width="2" />
+                    <rect x="220" y="140" width="360" height="220" rx="8" fill="url(#fieldGrad)"
+                        stroke="rgba(52,168,83,0.15)" stroke-width="1" />
+                    <line x1="400" y1="140" x2="400" y2="360" stroke="rgba(52,168,83,0.1)" stroke-width="1" />
+                    <circle cx="400" cy="250" r="40" fill="none" stroke="rgba(52,168,83,0.1)" stroke-width="1" />
+                    <circle cx="400" cy="250" r="3" fill="rgba(52,168,83,0.15)" />
+                    <rect x="230" y="120" width="340" height="15" rx="4" fill="rgba(255,255,255,0.02)"
+                        stroke="rgba(255,255,255,0.03)" stroke-width="0.5" />
+                    <rect x="230" y="365" width="340" height="15" rx="4" fill="rgba(255,255,255,0.02)"
+                        stroke="rgba(255,255,255,0.03)" stroke-width="0.5" />
+                </svg>
+                <div class="stadium-map" id="stadium-map"></div>
+            </div>
+            <div class="legend">
+                <span class="legend-item"><span class="dot dot-low"></span> Low &lt;50%</span>
+                <span class="legend-item"><span class="dot dot-medium"></span> Medium 50-70%</span>
+                <span class="legend-item"><span class="dot dot-high"></span> High 70-85%</span>
+                <span class="legend-item"><span class="dot dot-critical"></span> Critical &gt;85%</span>
+            </div>
+        </section>
+
+        <!-- RIGHT Column -->
+        <div class="right-column">
+            <!-- AI Command Center -->
+            <section class="panel ai-panel">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <h2><span class="gemini-icon">✦</span> Gemini AI Command Center</h2>
+                        <span class="panel-subtitle">Agentic reasoning & actions</span>
+                    </div>
+                    <button class="btn btn-gemini" id="btn-agent">
+                        <span class="gemini-sparkle">✨</span> Ask Gemini
+                    </button>
+                </div>
+                <div class="ai-feed" id="ai-feed">
+                    <div class="ai-placeholder">
+                        <div class="ai-placeholder-orb"></div>
+                        <p>Activate <strong>Gemini</strong> to analyze the stadium,<br>reason about congestion, and take
+                            actions.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Activity Feed -->
+            <section class="panel activity-panel">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <h2>📡 Live Activity</h2>
+                    </div>
+                </div>
+                <div class="activity-feed" id="activity-feed">
+                    <div class="activity-item">
+                        <span class="activity-time">now</span>
+                        <span class="activity-text">System initialized. Awaiting simulation.</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bottom Row -->
+            <div class="bottom-row">
+                <section class="panel user-panel">
+                    <div class="panel-header">
+                        <h2>👤 Fan Experience</h2>
+                    </div>
+                    <div class="user-controls">
+                        <div class="select-wrapper">
+                            <select id="user-select" class="select-input">
+                                <option value="user_1">Ankush</option>
+                                <option value="user_2">Priya</option>
+                                <option value="user_3">Rahul</option>
+                                <option value="user_4">Sneha</option>
+                                <option value="user_5">Arjun</option>
+                            </select>
+                        </div>
+                        <div class="select-wrapper">
+                            <select id="node-select" class="select-input">
+                                <option value="gate_a">Gate A</option>
+                                <option value="gate_b">Gate B</option>
+                                <option value="gate_c">Gate C</option>
+                                <option value="main_stand">Main Stand</option>
+                                <option value="east_stand">East Stand</option>
+                                <option value="food_court">Food Court</option>
+                                <option value="merch_store">Merch Store</option>
+                                <option value="restrooms">Restrooms</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-checkin" id="btn-checkin">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                <circle cx="12" cy="10" r="3" />
+                            </svg>
+                            Check In
+                        </button>
+                    </div>
+                    <div class="user-result" id="user-result">
+                        <div class="user-result-placeholder">
+                            <p>Select a fan & zone</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel leaderboard-panel">
+                    <div class="panel-header">
+                        <h2>🏆 Leaderboard</h2>
+                    </div>
+                    <div class="leaderboard" id="leaderboard">
+                        <div class="user-result-placeholder">
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-row">
+            <span>Developed by <a href="https://warriorwhocodes.com" class="dev-link" target="_blank">Ankush Singh
+                    Gandhi</a></span>
+            <span class="footer-sep">•</span>
+            <span>Using <strong>AntiGravity</strong>, <strong>Gemini 3.1 Pro</strong> & <strong>Flash</strong></span>
+        </div>
+        <div class="footer-row sec">
+            <span>Powered by <span class="footer-gemini">Google Cloud</span></span>
+            <span class="footer-sep">•</span>
+            <span>Google Agentic Premier League 2026</span>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>
