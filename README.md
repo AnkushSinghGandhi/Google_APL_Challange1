@@ -9,24 +9,36 @@ EventFlow AI is a high-impact crowd management system that combines a **Digital 
 ## 🌟 Standout Features
 
 ### 1. 🤖 True Agentic Reasoning (Not just a chatbot)
-Most AI projects just chat. EventFlow AI uses the new `google-genai` SDK for **Function Calling**. Gemini gets full context of the stadium capacity and can autonomously execute tools like `redistribute_crowd`, `broadcast_message`, and `issue_discount_reward` to proactively solve congestion hotspots.
+Most AI projects just chat. EventFlow AI uses the new `google-genai` SDK for **Function Calling**. Gemini gets full context of the stadium capacity and can autonomously execute tools like `redistribute_crowd`, `broadcast_message`, `issue_discount_reward`, `deploy_emergency_responders`, `create_incident_report`, and `request_backup` to proactively solve congestion hotspots and coordinate first responders.
 
 ### 2. 🗺️ Robust Digital Twin Simulator
-A fully modeled stadium with 8 interconnected nodes (Gates, Stands, Food Court, Restrooms, Merch). The crowd dynamically flows between them based on the **Event Phase** (Pre-Event, During, Halftime, Post-Event). 
+A fully modeled stadium with **9 interconnected nodes** (Gates, Stands, Food Court, Restrooms, Merch, and a **Medical Tent** staging area). The crowd dynamically flows between them based on the **Event Phase** (Pre-Event, During, Halftime, Post-Event). 
 
-### 3. 🚨 Emergency Evacuation Mode
-A single-click emergency mode that instantly triggers visual/audio alarms, shifts the simulation into "Post Event" phase, and forces aggressive redistribution parameters to guide fans to the nearest exits.
+### 3. 🚨 Multi-Severity Emergency System
+Two-tier emergency response replacing a single button:
+* **⚠️ Code Yellow** — Alert mode that automatically deploys police to congestion hotspots and creates a security incident
+* **🚨 Code Red** — Full emergency evacuation that deploys all responder types (firefighter, police, medic) to every gate and hotspot, triggers visual/audio alarms, shifts to "Post Event" phase, and forces aggressive crowd redistribution
 
-### 4. 🎮 Gamification & Rewards
+### 4. 🚒 First Responder Command Center
+A dedicated panel for emergency services coordination:
+* **Real-time tracking** of deployed vs. available units for 🚒 Firefighters, 🚔 Police, and 🚑 Medics
+* **Quick Deploy controls** — Select a zone, responder type, and unit count to dispatch instantly
+* **Incident Management** — Create, classify (fire/medical/security/stampede/structural/weather), set severity, and resolve incidents
+* **Stadium Map Markers** — Responder emoji badges appear directly on the map where teams are stationed
+* **Incident Banner** — Animated alert bar when active incidents exist
+* **AI-Powered Deployment** — Gemini autonomously deploys responders when it detects critical congestion zones
+
+### 5. 🎮 Gamification & Rewards
 You can't physically move fans, so we nudge their behavior using rewards. Gemini dynamically issues targeted incentives (e.g., "15% off Merch Store") to fans in congested areas, steering them to lower-density zones.
 
-### 5. 💎 Premium Dashboard
+### 6. 💎 Premium Dashboard
 A production-grade, dark-mode UI featuring:
 * Glassmorphism and modern gradient styling
 * Real-time SVG capacity rings and animated particle flows
+* First Responder Command Center with deploy/recall controls
 * Live Activity Feed & Density Trend Sparklines
 * Sound effects for alarms and success states (Web Audio API)
-* Native toast notifications
+* Native toast notifications & incident banners
 
 ## 🛠️ Tech & AI Development Stack
 
@@ -74,9 +86,13 @@ python app.py
 
 1. **Start** in the *Pre-Event* phase. Show crowds flowing into the gates.
 2. Switch to **Halftime** and hit *Step* a few times. Watch the Food Court and Restrooms hit critical mass (red rings, audio alarm sounds).
-3. Hit the **Ask Gemini** button. Watch the AI reason about the congestion and take action to clear the bottleneck.
-4. Click the **🚨 Emergency** button to show the full evacuation overlay and alarm.
-5. Check in as a Fan to show the personalized rewards system.
+3. Hit the **Ask Gemini** button. Watch the AI reason about the congestion, deploy responders, and take action to clear the bottleneck.
+4. **Deploy Responders** — Use the First Responder Command Center to send 🚔 Police to a congested gate. Watch the markers appear on the map.
+5. **Report an Incident** — Create a fire or medical incident at the Food Court. See the incident banner light up and the incident appear in the active list.
+6. Click **⚠️ Code Yellow** to show the alert-level emergency with targeted police deployment.
+7. Click **🚨 Code Red** to show the full evacuation overlay, siren alarm, and mass responder deployment.
+8. **Resolve the incident** and watch responder counts update in real-time.
+9. Check in as a Fan to show the personalized rewards system.
 
 ---
 
@@ -93,6 +109,8 @@ Given more time, I would expand EventFlow AI with:
 2. **Mobile App Push Notifications:** Deep integration with a stadium's ticketing app to send live, personalized routing instructions directly to fans' phones.
 3. **Predictive Weather & Transport Factors:** Feed Gemini live weather data and transit schedules so it can preemptively manage crowds (e.g., holding fans inside if a sudden thunderstorm hits the exits).
 4. **Dynamic Pricing Integration:** Automatically adjust food and merch prices on digital menus based on AI congestion data.
+5. **Real Radio Dispatch Integration:** Connect the incident management system to actual dispatch radios so responder commands flow directly to field units.
+6. **GPS-Tracked Responder Positions:** Use real GPS data from responder devices to show exact positions on the map instead of zone-level tracking.
 
 ### Behind the Scenes: Prompts I Used to Build This
 I collaborated extensively with AI to bring this vision to life. Here are some of the core prompts I gave my AI assistants to build the system:
