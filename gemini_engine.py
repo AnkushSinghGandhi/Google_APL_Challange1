@@ -5,15 +5,39 @@ Uses the new google-genai SDK with function calling for true agentic behavior.
 import json
 from google import genai
 from google.genai import types
-from config import GEMINI_API_KEY, STADIUM_NODES, RESPONDER_TYPES, INCIDENT_TYPES
+from config import GEMINI_API_KEY as _ENV_API_KEY, STADIUM_NODES, RESPONDER_TYPES, INCIDENT_TYPES
 
 # Will be set by app.py after initialization
 _simulator = None
 _rewards = None
 _decision_log = []
 
+# User-overridable API key (set from UI)
+_api_key_override = None
+
 # Capacity lookup for prompt building
 STADIUM_NODES_CAPS = {nid: cfg["capacity"] for nid, cfg in STADIUM_NODES.items()}
+
+
+def get_api_key():
+    """Return the active API key: user-override first, then env var."""
+    return _api_key_override or _ENV_API_KEY
+
+
+def set_api_key(key):
+    """Allow users to set their own API key at runtime."""
+    global _api_key_override
+    _api_key_override = key.strip() if key else None
+
+
+def get_api_key_status():
+    """Return status of the API key without exposing the full key."""
+    key = get_api_key()
+    if key:
+        masked = key[:4] + "*" * (len(key) - 8) + key[-4:] if len(key) > 8 else "****"
+        source = "user" if _api_key_override else "env"
+        return {"has_key": True, "masked_key": masked, "source": source}
+    return {"has_key": False, "masked_key": None, "source": None}
 
 
 def init_engine(simulator, rewards):
@@ -221,7 +245,7 @@ TOOL_DECLARATIONS = [
 
 def agent_decide():
     """Main agentic loop: Send state to Gemini, let it reason and call tools."""
-    if not GEMINI_API_KEY:
+    if not get_api_key():
         return _fallback_decide()
 
     state = _simulator.get_state()
@@ -283,7 +307,7 @@ ACTIVE INCIDENTS: {inc_text}
 Analyze the situation and take actions to manage the crowd. Use your tools to check hotspots, predict flow, issue rewards, redistribute crowd, and deploy first responders as needed. If zones are critical, consider deploying police or medics. Explain your reasoning."""
 
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        client = genai.Client(api_key=get_api_key())
 
         # Start the agentic loop with automatic function calling
         actions_taken = []
@@ -445,7 +469,7 @@ def _fallback_decide():
 
 def get_user_suggestion(user_id, node_id):
     """Get a personalized suggestion for a specific user at a node."""
-    if not GEMINI_API_KEY:
+    if not get_api_key():
         return _fallback_user_suggestion(user_id, node_id)
 
     state = _simulator.get_state()
@@ -477,7 +501,7 @@ RESPOND ONLY with valid JSON:
 {{"suggestion": "your message here", "reward_type": "discount|bonus_points|priority_exit|free_item|none", "target_node": "node_id or null"}}"""
 
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        client = genai.Client(api_key=get_api_key())
         response = client.models.generate_content(
             model="gemini-2.0-flash",
             contents=prompt,

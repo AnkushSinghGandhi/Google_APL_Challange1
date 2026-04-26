@@ -454,7 +454,7 @@ async function refreshState() {
 // ---- Event Handlers ----
 document.addEventListener('DOMContentLoaded', () => {
     refreshState();
-
+    checkKeyStatus();  // Check API key on load
     // Simulate Step
     document.getElementById('btn-simulate').addEventListener('click', async () => {
         const btn = document.getElementById('btn-simulate');
@@ -624,6 +624,55 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('emergency-overlay').classList.remove('active');
         document.getElementById('emergency-overlay').classList.remove('code-yellow');
     });
+
+    // --- API Key Modal ---
+    document.getElementById('btn-key-settings').addEventListener('click', () => {
+        document.getElementById('key-modal-overlay').classList.add('active');
+        checkKeyStatus();
+    });
+
+    document.getElementById('key-modal-close').addEventListener('click', () => {
+        document.getElementById('key-modal-overlay').classList.remove('active');
+    });
+
+    document.getElementById('key-modal-overlay').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) {
+            e.currentTarget.classList.remove('active');
+        }
+    });
+
+    document.getElementById('btn-set-key').addEventListener('click', async () => {
+        const input = document.getElementById('key-input');
+        const key = input.value.trim();
+        if (!key) { showToast('Error', 'Please enter an API key', 'warning'); return; }
+        const btn = document.getElementById('btn-set-key');
+        btn.disabled = true;
+        btn.textContent = 'Setting...';
+        try {
+            const result = await apiPost('/api/key/set', { key });
+            if (result.error) {
+                showToast('Error', result.error, 'danger');
+            } else {
+                showToast('API Key Set', 'Gemini is now active! \uD83D\uDE80', 'success');
+                playAlertSound('success');
+                input.value = '';
+                checkKeyStatus();
+            }
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Set Key';
+        }
+    });
+
+    document.getElementById('key-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('btn-set-key').click();
+    });
+
+    document.getElementById('btn-clear-key').addEventListener('click', async () => {
+        await apiPost('/api/key/clear');
+        showToast('Key Cleared', 'Reverted to environment key or fallback mode', 'info');
+        checkKeyStatus();
+    });
 });
 
 // ---- Emergency Handler ----
@@ -765,5 +814,45 @@ async function resolveIncident(incidentId) {
         await refreshState();
     } catch (e) {
         showToast('Error', 'Failed to resolve incident', 'danger');
+    }
+}
+
+// ---- API Key Management ----
+async function checkKeyStatus() {
+    try {
+        const res = await fetch('/api/key/status');
+        const data = await res.json();
+        updateKeyUI(data);
+    } catch {
+        updateKeyUI({ has_key: false });
+    }
+}
+
+function updateKeyUI(status) {
+    const btn = document.getElementById('btn-key-settings');
+    const dot = document.getElementById('key-status-dot');
+    const text = document.getElementById('key-status-text');
+    const clearBtn = document.getElementById('btn-clear-key');
+
+    if (status.has_key) {
+        btn.classList.add('key-active');
+        btn.classList.remove('key-missing');
+        dot.classList.add('status-active');
+        dot.classList.remove('status-missing');
+        const source = status.source === 'user' ? 'User-provided' : 'Environment';
+        text.textContent = `✅ Active (${source}) — ${status.masked_key}`;
+        clearBtn.style.display = status.source === 'user' ? 'block' : 'none';
+    } else {
+        btn.classList.remove('key-active');
+        btn.classList.add('key-missing');
+        dot.classList.remove('status-active');
+        dot.classList.add('status-missing');
+        text.textContent = '⚠️ No API key — running in fallback mode';
+        clearBtn.style.display = 'none';
+
+        // Auto-open modal on first load if no key
+        setTimeout(() => {
+            document.getElementById('key-modal-overlay').classList.add('active');
+        }, 1500);
     }
 }

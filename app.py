@@ -24,6 +24,32 @@ def index():
     return render_template("index.html")
 
 
+# --- API Key Management ---
+
+@app.route("/api/key/status", methods=["GET"])
+def key_status():
+    """Check if a Gemini API key is configured."""
+    return jsonify(gemini_engine.get_api_key_status())
+
+
+@app.route("/api/key/set", methods=["POST"])
+def set_key():
+    """Allow users to set their own Gemini API key."""
+    data = request.get_json() or {}
+    key = data.get("key", "").strip()
+    if not key:
+        return jsonify({"error": "No key provided"}), 400
+    gemini_engine.set_api_key(key)
+    return jsonify({"status": "ok", **gemini_engine.get_api_key_status()})
+
+
+@app.route("/api/key/clear", methods=["POST"])
+def clear_key():
+    """Clear user-set API key, revert to env var."""
+    gemini_engine.set_api_key(None)
+    return jsonify({"status": "cleared", **gemini_engine.get_api_key_status()})
+
+
 # --- API Routes ---
 
 @app.route("/api/state", methods=["GET"])
