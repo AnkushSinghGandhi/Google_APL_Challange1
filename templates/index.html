@@ -22,9 +22,9 @@
     <div class="emergency-overlay" id="emergency-overlay">
         <div class="emergency-content">
             <div class="emergency-siren">🚨</div>
-            <h2>EMERGENCY EVACUATION</h2>
-            <p>All fans directed to nearest exits</p>
-            <p class="emergency-sub">Priority exit passes issued</p>
+            <h2 id="emergency-overlay-title">EMERGENCY EVACUATION</h2>
+            <p id="emergency-overlay-msg">All fans directed to nearest exits</p>
+            <p class="emergency-sub">Priority exit passes issued · Responders deployed</p>
         </div>
     </div>
 
@@ -68,9 +68,14 @@
                     <span class="phase-icon">🚪</span><span class="phase-label">Post</span>
                 </button>
             </div>
-            <button class="btn btn-emergency" id="btn-emergency" title="Activate emergency evacuation">
-                🚨 Emergency
-            </button>
+            <div class="emergency-controls">
+                <button class="btn btn-code-yellow" id="btn-code-yellow" title="Code Yellow: Deploy police to hotspots">
+                    ⚠️ Code Yellow
+                </button>
+                <button class="btn btn-code-red" id="btn-code-red" title="Code Red: Full emergency evacuation">
+                    🚨 Code Red
+                </button>
+            </div>
         </div>
         <div class="header-right">
             <div class="stat-chip">
@@ -96,6 +101,13 @@
             </div>
         </div>
     </header>
+
+    <!-- Incident Banner -->
+    <div class="incident-banner" id="incident-banner">
+        <span class="incident-banner-icon">🚨</span>
+        <span class="incident-banner-text">ACTIVE INCIDENTS</span>
+        <span class="incident-banner-count" id="incident-banner-count">0</span>
+    </div>
 
     <!-- Stats Bar -->
     <div class="stats-bar">
@@ -224,6 +236,148 @@
                 </div>
             </section>
 
+            <!-- First Responder Command Center -->
+            <section class="panel responder-panel" id="responder-panel">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <h2>🚒 First Responder Command</h2>
+                        <span class="panel-subtitle">Deploy firefighters, police & medics</span>
+                    </div>
+                </div>
+                <!-- Responder Overview Cards -->
+                <div class="responder-overview" id="responder-overview">
+                    <div class="responder-card type-firefighter">
+                        <div class="responder-card-header">
+                            <span class="responder-card-emoji">🚒</span>
+                            <span class="responder-card-label">Fire</span>
+                        </div>
+                        <div class="responder-card-stats">
+                            <div class="responder-stat">
+                                <span class="responder-stat-value" id="fire-deployed">0</span>
+                                <span class="responder-stat-label">Deployed</span>
+                            </div>
+                            <div class="responder-stat">
+                                <span class="responder-stat-value" id="fire-available">12</span>
+                                <span class="responder-stat-label">Available</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="responder-card type-police">
+                        <div class="responder-card-header">
+                            <span class="responder-card-emoji">🚔</span>
+                            <span class="responder-card-label">Police</span>
+                        </div>
+                        <div class="responder-card-stats">
+                            <div class="responder-stat">
+                                <span class="responder-stat-value" id="police-deployed">0</span>
+                                <span class="responder-stat-label">Deployed</span>
+                            </div>
+                            <div class="responder-stat">
+                                <span class="responder-stat-value" id="police-available">15</span>
+                                <span class="responder-stat-label">Available</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="responder-card type-medic">
+                        <div class="responder-card-header">
+                            <span class="responder-card-emoji">🚑</span>
+                            <span class="responder-card-label">Medical</span>
+                        </div>
+                        <div class="responder-card-stats">
+                            <div class="responder-stat">
+                                <span class="responder-stat-value" id="medic-deployed">0</span>
+                                <span class="responder-stat-label">Deployed</span>
+                            </div>
+                            <div class="responder-stat">
+                                <span class="responder-stat-value" id="medic-available">10</span>
+                                <span class="responder-stat-label">Available</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Quick Deploy -->
+                <div class="deploy-controls">
+                    <div class="select-wrapper">
+                        <select id="deploy-zone" class="select-input">
+                            <option value="gate_a">Gate A</option>
+                            <option value="gate_b">Gate B</option>
+                            <option value="gate_c">Gate C</option>
+                            <option value="main_stand">Main Stand</option>
+                            <option value="east_stand">East Stand</option>
+                            <option value="food_court">Food Court</option>
+                            <option value="merch_store">Merch Store</option>
+                            <option value="restrooms">Restrooms</option>
+                            <option value="medical_tent">Medical Tent</option>
+                        </select>
+                    </div>
+                    <div class="select-wrapper">
+                        <select id="deploy-type" class="select-input">
+                            <option value="firefighter">🚒 Fire</option>
+                            <option value="police">🚔 Police</option>
+                            <option value="medic">🚑 Medic</option>
+                        </select>
+                    </div>
+                    <div class="select-wrapper">
+                        <select id="deploy-count" class="select-input">
+                            <option value="1">×1</option>
+                            <option value="2">×2</option>
+                            <option value="3" selected>×3</option>
+                            <option value="5">×5</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-deploy" id="btn-deploy">
+                        🚀 Deploy
+                    </button>
+                </div>
+                <!-- Incidents -->
+                <div class="incidents-section">
+                    <div class="incidents-header">
+                        <span class="incidents-title">
+                            📋 Active Incidents
+                            <span class="incident-count-badge" id="incident-count">0</span>
+                        </span>
+                    </div>
+                    <div class="incident-create-row">
+                        <div class="select-wrapper">
+                            <select id="incident-zone" class="select-input">
+                                <option value="gate_a">Gate A</option>
+                                <option value="gate_b">Gate B</option>
+                                <option value="gate_c">Gate C</option>
+                                <option value="main_stand">Main Stand</option>
+                                <option value="east_stand">East Stand</option>
+                                <option value="food_court">Food Court</option>
+                                <option value="merch_store">Merch Store</option>
+                                <option value="restrooms">Restrooms</option>
+                                <option value="medical_tent">Medical Tent</option>
+                            </select>
+                        </div>
+                        <div class="select-wrapper">
+                            <select id="incident-type" class="select-input">
+                                <option value="fire">🔥 Fire</option>
+                                <option value="medical">🏥 Medical</option>
+                                <option value="security">🔒 Security</option>
+                                <option value="stampede">🏃 Stampede</option>
+                                <option value="structural">🏗️ Structural</option>
+                                <option value="weather">⛈️ Weather</option>
+                            </select>
+                        </div>
+                        <div class="select-wrapper">
+                            <select id="incident-severity" class="select-input">
+                                <option value="code_green">✅ Green</option>
+                                <option value="code_yellow" selected>⚠️ Yellow</option>
+                                <option value="code_red">🚨 Red</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-create-incident" id="btn-create-incident">
+                            + Report
+                        </button>
+                    </div>
+                    <div class="incident-list" id="incident-list">
+                        <div class="no-incidents">No active incidents ✅</div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Activity Feed -->
             <section class="panel activity-panel">
                 <div class="panel-header">
@@ -265,6 +419,7 @@
                                 <option value="food_court">Food Court</option>
                                 <option value="merch_store">Merch Store</option>
                                 <option value="restrooms">Restrooms</option>
+                                <option value="medical_tent">Medical Tent</option>
                             </select>
                         </div>
                         <button class="btn btn-checkin" id="btn-checkin">

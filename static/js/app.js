@@ -13,15 +13,17 @@ const NODE_LAYOUT = {
     food_court: { x: 38, y: 16, emoji: '🍔', label: 'Food Court' },
     merch_store: { x: 82, y: 72, emoji: '🛍️', label: 'Merch Store' },
     restrooms: { x: 28, y: 72, emoji: '🚻', label: 'Restrooms' },
+    medical_tent: { x: 55, y: 90, emoji: '⛑️', label: 'Medical Tent' },
 };
 
 const CONNECTIONS = [
     ['gate_a', 'main_stand'], ['gate_a', 'food_court'],
     ['gate_b', 'east_stand'], ['gate_b', 'merch_store'],
-    ['gate_c', 'main_stand'], ['gate_c', 'restrooms'],
+    ['gate_c', 'main_stand'], ['gate_c', 'restrooms'], ['gate_c', 'medical_tent'],
     ['main_stand', 'food_court'], ['main_stand', 'restrooms'],
     ['east_stand', 'merch_store'], ['east_stand', 'restrooms'],
     ['food_court', 'merch_store'],
+    ['restrooms', 'medical_tent'],
 ];
 
 const CONGESTION_COLORS = {
@@ -261,9 +263,15 @@ function renderStadiumMap(state) {
         `;
         el.addEventListener('click', () => {
             document.getElementById('node-select').value = nodeId;
+            document.getElementById('deploy-zone').value = nodeId;
         });
         container.appendChild(el);
     });
+
+    // Render responder markers on nodes
+    if (state.responders) {
+        renderResponderMarkers(state, container, w, h);
+    }
 
     // Save for delta
     Object.entries(state.nodes).forEach(([nid, n]) => { previousCrowds[nid] = n.crowd; });
@@ -306,6 +314,26 @@ function updateStats(state) {
             showToast('Critical Congestion', `${counts.critical} zone(s) at critical capacity!`, 'danger');
         }
     }
+
+    // Update responder stats
+    if (state.responder_summary) {
+        const rs = state.responder_summary;
+        if (rs.firefighter) {
+            document.getElementById('fire-deployed').textContent = rs.firefighter.deployed;
+            document.getElementById('fire-available').textContent = rs.firefighter.available;
+        }
+        if (rs.police) {
+            document.getElementById('police-deployed').textContent = rs.police.deployed;
+            document.getElementById('police-available').textContent = rs.police.available;
+        }
+        if (rs.medic) {
+            document.getElementById('medic-deployed').textContent = rs.medic.deployed;
+            document.getElementById('medic-available').textContent = rs.medic.available;
+        }
+    }
+
+    // Update incident banner & list
+    updateIncidents(state);
 
     // Track density history
     densityHistory.push({ tick: state.tick, density: state.overall_density || 0 });
@@ -505,40 +533,58 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Emergency Mode
-    document.getElementById('btn-emergency').addEventListener('click', async () => {
-        const overlay = document.getElementById('emergency-overlay');
-        const header = document.getElementById('main-header');
+    // Emergency Mode — Code Yellow
+    document.getElementById('btn-code-yellow').addEventListener('click', async () => {
+        handleEmergency('code_yellow');
+    });
 
-        playAlertSound('emergency');
-        addActivity('🚨 EMERGENCY EVACUATION ACTIVATED', 'alert');
+    // Emergency Mode — Code Red
+    document.getElementById('btn-code-red').addEventListener('click', async () => {
+        handleEmergency('code_red');
+    });
 
-        // Show overlay
-        overlay.classList.add('active');
-        header.classList.add('emergency-active');
-
-        // Set phase buttons
-        document.querySelectorAll('.phase-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector('[data-phase="post_event"]').classList.add('active');
-
+    // Deploy Responders
+    document.getElementById('btn-deploy').addEventListener('click', async () => {
+        const zone = document.getElementById('deploy-zone').value;
+        const type = document.getElementById('deploy-type').value;
+        const count = parseInt(document.getElementById('deploy-count').value);
+        const btn = document.getElementById('btn-deploy');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>';
         try {
-            const result = await apiPost('/api/emergency');
-            showToast('EMERGENCY', result.message, 'danger');
+            const result = await apiPost('/api/responders/deploy', { node_id: zone, type, count });
+            if (result.error) {
+                showToast('Deploy Failed', result.error, 'warning');
+            } else {
+                const typeEmoji = { firefighter: '🚒', police: '🚔', medic: '🚑' }[type] || '🚨';
+                showToast('Deployed', `${typeEmoji} ${result.deployed} ${type}(s) → ${result.node_name}`, 'success');
+                addActivity(`${typeEmoji} ${result.deployed} ${type}(s) deployed to ${result.node_name}`, 'alert');
+                playAlertSound('success');
+            }
+            await refreshState();
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '🚀 Deploy';
+        }
+    });
 
-            // Auto-dismiss overlay after 3s
-            setTimeout(() => {
-                overlay.classList.remove('active');
-            }, 3000);
-
-            // Remove header red border after 10s
-            setTimeout(() => {
-                header.classList.remove('emergency-active');
-            }, 10000);
-
+    // Create Incident
+    document.getElementById('btn-create-incident').addEventListener('click', async () => {
+        const zone = document.getElementById('incident-zone').value;
+        const type = document.getElementById('incident-type').value;
+        const severity = document.getElementById('incident-severity').value;
+        try {
+            const result = await apiPost('/api/incident/create', { node_id: zone, type, severity });
+            if (result.error) {
+                showToast('Error', result.error, 'warning');
+            } else {
+                showToast('Incident Reported', `${result.id}: ${result.type} at ${result.node_name}`, 'danger');
+                addActivity(`📋 Incident ${result.id}: ${result.type} (${result.severity}) at ${result.node_name}`, 'alert');
+                playAlertSound('warning');
+            }
             await refreshState();
         } catch (e) {
-            showToast('Error', 'Emergency activation failed', 'danger');
-            overlay.classList.remove('active');
+            showToast('Error', 'Failed to create incident', 'danger');
         }
     });
 
@@ -576,5 +622,148 @@ document.addEventListener('DOMContentLoaded', () => {
     // Dismiss emergency overlay on click
     document.getElementById('emergency-overlay').addEventListener('click', () => {
         document.getElementById('emergency-overlay').classList.remove('active');
+        document.getElementById('emergency-overlay').classList.remove('code-yellow');
     });
 });
+
+// ---- Emergency Handler ----
+async function handleEmergency(severity) {
+    const overlay = document.getElementById('emergency-overlay');
+    const header = document.getElementById('main-header');
+    const title = document.getElementById('emergency-overlay-title');
+    const msg = document.getElementById('emergency-overlay-msg');
+
+    playAlertSound('emergency');
+
+    if (severity === 'code_yellow') {
+        overlay.classList.add('code-yellow');
+        title.textContent = 'CODE YELLOW — ALERT';
+        msg.textContent = 'Police deployed to congestion hotspots';
+        addActivity('⚠️ CODE YELLOW ACTIVATED — Police deploying to hotspots', 'alert');
+    } else {
+        overlay.classList.remove('code-yellow');
+        title.textContent = 'CODE RED — EMERGENCY EVACUATION';
+        msg.textContent = 'All fans directed to nearest exits';
+        addActivity('🚨 CODE RED — FULL EMERGENCY EVACUATION', 'alert');
+    }
+
+    overlay.classList.add('active');
+    header.classList.add('emergency-active');
+
+    document.querySelectorAll('.phase-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-phase="post_event"]').classList.add('active');
+
+    try {
+        const result = await apiPost('/api/emergency', { severity });
+        showToast('EMERGENCY', result.message, 'danger');
+
+        setTimeout(() => {
+            overlay.classList.remove('active');
+            overlay.classList.remove('code-yellow');
+        }, 3000);
+
+        setTimeout(() => {
+            header.classList.remove('emergency-active');
+        }, 10000);
+
+        await refreshState();
+    } catch (e) {
+        showToast('Error', 'Emergency activation failed', 'danger');
+        overlay.classList.remove('active');
+        overlay.classList.remove('code-yellow');
+    }
+}
+
+// ---- Responder Markers on Stadium Map ----
+function renderResponderMarkers(state, container, w, h) {
+    const responders = state.responders || {};
+    const RESP_EMOJIS = { firefighter: '🚒', police: '🚔', medic: '🚑' };
+
+    Object.entries(responders).forEach(([nodeId, resp]) => {
+        const layout = NODE_LAYOUT[nodeId];
+        if (!layout) return;
+
+        const totalResp = (resp.firefighter || 0) + (resp.police || 0) + (resp.medic || 0);
+        if (totalResp === 0) return;
+
+        const x = (layout.x / 100) * w;
+        const y = (layout.y / 100) * h;
+
+        const markersDiv = document.createElement('div');
+        markersDiv.className = 'responder-markers';
+        markersDiv.style.left = `${x}px`;
+        markersDiv.style.top = `${y + 32}px`;
+        markersDiv.style.position = 'absolute';
+
+        Object.entries(resp).forEach(([type, count]) => {
+            if (count > 0) {
+                const marker = document.createElement('span');
+                marker.className = 'responder-marker';
+                marker.innerHTML = `${RESP_EMOJIS[type] || '🚨'}<span class="responder-marker-count">${count}</span>`;
+                markersDiv.appendChild(marker);
+            }
+        });
+
+        container.appendChild(markersDiv);
+    });
+}
+
+// ---- Incident Management ----
+function updateIncidents(state) {
+    const incidents = state.active_incidents || [];
+    const count = incidents.length;
+
+    // Update banner
+    const banner = document.getElementById('incident-banner');
+    const bannerCount = document.getElementById('incident-banner-count');
+    if (count > 0) {
+        banner.classList.add('active');
+        bannerCount.textContent = count;
+    } else {
+        banner.classList.remove('active');
+    }
+
+    // Update count badge
+    document.getElementById('incident-count').textContent = count;
+
+    // Render incident list
+    const list = document.getElementById('incident-list');
+    if (count === 0) {
+        list.innerHTML = '<div class="no-incidents">No active incidents ✅</div>';
+        return;
+    }
+
+    const INCIDENT_EMOJIS = {
+        fire: '🔥', medical: '🏥', security: '🔒', stampede: '🏃',
+        structural: '🏗️', weather: '⛈️', other: '📋'
+    };
+
+    list.innerHTML = incidents.map(inc => `
+        <div class="incident-item">
+            <span class="severity-badge severity-${inc.severity}">${inc.severity.replace('_', ' ')}</span>
+            <div class="incident-info">
+                <span class="incident-type">${INCIDENT_EMOJIS[inc.type] || '📋'} ${inc.type}</span>
+                <span class="incident-location">${inc.node_name} · ${inc.id}</span>
+            </div>
+            <button class="btn-resolve" onclick="resolveIncident('${inc.id}')">
+                ✓ Resolve
+            </button>
+        </div>
+    `).join('');
+}
+
+async function resolveIncident(incidentId) {
+    try {
+        const result = await apiPost('/api/incident/resolve', { incident_id: incidentId });
+        if (result.error) {
+            showToast('Error', result.error, 'warning');
+        } else {
+            showToast('Resolved', `Incident ${incidentId} resolved`, 'success');
+            addActivity(`✅ Incident ${incidentId} resolved`, 'info');
+            playAlertSound('success');
+        }
+        await refreshState();
+    } catch (e) {
+        showToast('Error', 'Failed to resolve incident', 'danger');
+    }
+}
