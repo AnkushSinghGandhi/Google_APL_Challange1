@@ -100,7 +100,10 @@ def leaderboard():
 
 @app.route("/api/emergency", methods=["POST"])
 def emergency():
-    """Activate emergency evacuation mode."""
+    """Activate emergency evacuation mode with optional severity."""
+    data = request.get_json() or {}
+    severity = data.get("severity", "code_red")
+
     simulator.set_phase("post_event")
 
     # Force redistribute from all non-gate nodes to gates
@@ -117,12 +120,99 @@ def emergency():
     for uid in list(rewards.users.keys())[:10]:
         rewards.issue_reward(uid, "priority_exit", "Emergency evacuation")
 
+    # Auto-deploy responders based on severity
+    deploy_results = []
+    if severity == "code_red":
+        # Full deployment: all types to all gates and hotspots
+        hotspots = simulator.get_hotspots()
+        deploy_zones = list(set(gate_nodes + [h["id"] for h in hotspots]))
+        for zone in deploy_zones:
+            for rtype in ["police", "medic", "firefighter"]:
+                r = simulator.deploy_responders(zone, rtype, 2)
+                deploy_results.append(r)
+        # Create incident
+        inc = simulator.create_incident(
+            deploy_zones[0] if deploy_zones else "gate_a",
+            "security", "code_red"
+        )
+    elif severity == "code_yellow":
+        # Targeted deployment: police to hotspots
+        hotspots = simulator.get_hotspots()
+        for h in hotspots:
+            r = simulator.deploy_responders(h["id"], "police", 3)
+            deploy_results.append(r)
+        inc = simulator.create_incident(
+            hotspots[0]["id"] if hotspots else "gate_a",
+            "security", "code_yellow"
+        )
+    else:
+        inc = None
+
     return jsonify({
         "status": "emergency_activated",
+        "severity": severity,
         "phase": "post_event",
         "evacuations": evac_actions,
-        "message": "🚨 Emergency evacuation initiated. All fans directed to nearest exits with priority passes.",
+        "responder_deployments": deploy_results,
+        "incident": inc,
+        "message": f"🚨 Emergency ({severity.replace('_', ' ').upper()}) activated. All fans directed to nearest exits with priority passes.",
     })
+
+
+# --- First Responder API Routes ---
+
+@app.route("/api/responders/deploy", methods=["POST"])
+def deploy_responders():
+    """Deploy responders to a zone."""
+    data = request.get_json() or {}
+    node_id = data.get("node_id", "")
+    rtype = data.get("type", "")
+    count = data.get("count", 1)
+    result = simulator.deploy_responders(node_id, rtype, count)
+    return jsonify(result)
+
+
+@app.route("/api/responders/recall", methods=["POST"])
+def recall_responders():
+    """Recall responders from a zone."""
+    data = request.get_json() or {}
+    node_id = data.get("node_id", "")
+    rtype = data.get("type", "")
+    result = simulator.recall_responders(node_id, rtype)
+    return jsonify(result)
+
+
+@app.route("/api/responders/status", methods=["GET"])
+def responder_status():
+    """Get all responder deployments."""
+    return jsonify(simulator.get_responder_summary())
+
+
+@app.route("/api/incident/create", methods=["POST"])
+def create_incident():
+    """Create an incident report."""
+    data = request.get_json() or {}
+    node_id = data.get("node_id", "")
+    inc_type = data.get("type", "other")
+    severity = data.get("severity", "code_yellow")
+    result = simulator.create_incident(node_id, inc_type, severity)
+    return jsonify(result)
+
+
+@app.route("/api/incident/resolve", methods=["POST"])
+def resolve_incident():
+    """Resolve an active incident."""
+    data = request.get_json() or {}
+    incident_id = data.get("incident_id", "")
+    result = simulator.resolve_incident(incident_id)
+    return jsonify(result)
+
+
+@app.route("/api/incidents", methods=["GET"])
+def list_incidents():
+    """List active incidents."""
+    active = [i for i in simulator.incidents if i["status"] == "active"]
+    return jsonify({"incidents": active, "count": len(active)})
 
 
 @app.route("/api/density-history", methods=["GET"])
@@ -141,4 +231,6 @@ def density_history():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True, host="0.0.0.0", port=port)

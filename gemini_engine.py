@@ -5,7 +5,7 @@ Uses the new google-genai SDK with function calling for true agentic behavior.
 import json
 from google import genai
 from google.genai import types
-from config import GEMINI_API_KEY, STADIUM_NODES
+from config import GEMINI_API_KEY, STADIUM_NODES, RESPONDER_TYPES, INCIDENT_TYPES
 
 # Will be set by app.py after initialization
 _simulator = None
@@ -72,6 +72,25 @@ def broadcast_announcement(message: str, target_nodes: list) -> dict:
     return {"status": "broadcasted", "message": message, "target_nodes": target_nodes}
 
 
+def deploy_emergency_responders(node_id: str, responder_type: str, count: int) -> dict:
+    """Deploy first responders to a stadium zone."""
+    return _simulator.deploy_responders(node_id, responder_type, count)
+
+
+def create_incident_report(node_id: str, incident_type: str, severity: str) -> dict:
+    """Create an incident report for a zone."""
+    return _simulator.create_incident(node_id, incident_type, severity)
+
+
+def request_backup(node_id: str, reason: str) -> dict:
+    """Request additional responder units to a critical zone — deploys all types."""
+    results = []
+    for rt in RESPONDER_TYPES:
+        r = _simulator.deploy_responders(node_id, rt, 3)
+        results.append(r)
+    return {"status": "backup_deployed", "node_id": node_id, "reason": reason, "deployments": results}
+
+
 # Map of callable tool functions
 TOOL_FUNCTIONS = {
     "get_node_status": get_node_status,
@@ -80,6 +99,9 @@ TOOL_FUNCTIONS = {
     "issue_reward_to_users": issue_reward_to_users,
     "redistribute_crowd": redistribute_crowd,
     "broadcast_announcement": broadcast_announcement,
+    "deploy_emergency_responders": deploy_emergency_responders,
+    "create_incident_report": create_incident_report,
+    "request_backup": request_backup,
 }
 
 # --- Tool declarations for Gemini ---
@@ -155,6 +177,44 @@ TOOL_DECLARATIONS = [
                 required=["message", "target_nodes"],
             ),
         ),
+        types.FunctionDeclaration(
+            name="deploy_emergency_responders",
+            description="Deploy first responders (firefighter, police, or medic) to a stadium zone for emergency management. Use when congestion is critical or an incident is reported.",
+            parameters=types.Schema(
+                type="OBJECT",
+                properties={
+                    "node_id": types.Schema(type="STRING", description="Node ID to deploy responders to"),
+                    "responder_type": types.Schema(type="STRING", description="Type of responder: 'firefighter', 'police', or 'medic'"),
+                    "count": types.Schema(type="INTEGER", description="Number of units to deploy (1-10)"),
+                },
+                required=["node_id", "responder_type", "count"],
+            ),
+        ),
+        types.FunctionDeclaration(
+            name="create_incident_report",
+            description="Create an incident report for a stadium zone. Types: fire, medical, security, stampede, structural, weather, other. Severities: code_green, code_yellow, code_red.",
+            parameters=types.Schema(
+                type="OBJECT",
+                properties={
+                    "node_id": types.Schema(type="STRING", description="Node where the incident is occurring"),
+                    "incident_type": types.Schema(type="STRING", description="Type of incident: fire, medical, security, stampede, structural, weather, other"),
+                    "severity": types.Schema(type="STRING", description="Severity level: code_green, code_yellow, or code_red"),
+                },
+                required=["node_id", "incident_type", "severity"],
+            ),
+        ),
+        types.FunctionDeclaration(
+            name="request_backup",
+            description="Request backup by deploying all responder types (firefighter, police, medic) to a critical zone simultaneously.",
+            parameters=types.Schema(
+                type="OBJECT",
+                properties={
+                    "node_id": types.Schema(type="STRING", description="Node ID that needs backup"),
+                    "reason": types.Schema(type="STRING", description="Reason for backup request"),
+                },
+                required=["node_id", "reason"],
+            ),
+        ),
     ])
 ]
 
@@ -167,17 +227,25 @@ def agent_decide():
     state = _simulator.get_state()
 
     system_instruction = """You are EventFlow AI, an intelligent crowd management agent for a live stadium event.
+You coordinate both crowd flow AND first responder emergency teams.
 
 Your job is to:
 1. Analyze the current stadium crowd state
 2. Identify congestion hotspots and potential safety risks
 3. Take proactive actions to redistribute crowds using rewards, announcements, and direct guidance
-4. Explain your reasoning clearly
+4. Deploy first responders (firefighter, police, medic) when situations are dangerous
+5. Create incident reports for emergencies
+6. Explain your reasoning clearly
 
 IMPORTANT RULES:
 - Always check hotspots first
 - If congestion is critical (>85% capacity), take immediate action
-- Prefer giving rewards over broadcasting announcements
+- When congestion is CRITICAL and density >90%, deploy police for crowd control
+- If multiple zones are critical simultaneously, create an incident report and deploy medics
+- During emergency/post_event phase, prioritize responder deployment before reward-based redistribution
+- Deploy firefighters proactively if there's a fire-related incident or structural concern
+- Deploy medics to medical_tent and any zone with potential injuries from overcrowding
+- Prefer giving rewards over broadcasting announcements for non-emergency situations
 - Be specific about which nodes to redirect to
 - Consider the event phase when making decisions
 - Always explain WHY you're taking each action
@@ -189,6 +257,17 @@ IMPORTANT RULES:
         for nid, n in state["nodes"].items()
     ])
 
+    # Responder summary
+    resp_summary = state.get("responder_summary", {})
+    resp_lines = []
+    for rt, info in resp_summary.items():
+        resp_lines.append(f"  - {rt}: {info['deployed']} deployed, {info['available']} available")
+    resp_text = "\n".join(resp_lines) if resp_lines else "  No responder data"
+
+    # Active incidents
+    active_inc = state.get("active_incidents", [])
+    inc_text = ", ".join([f"{i['id']} ({i['type']}/{i['severity']} at {i['node_name']})" for i in active_inc]) if active_inc else "None"
+
     user_message = f"""Current stadium state at tick {state['tick']}, phase: {state['phase']}
 Overall density: {int(state['overall_density'] * 100)}% ({state['total_crowd']}/{state['total_capacity']})
 Hotspots: {', '.join(state['hotspots']) if state['hotspots'] else 'None'}
@@ -196,7 +275,12 @@ Hotspots: {', '.join(state['hotspots']) if state['hotspots'] else 'None'}
 ZONE STATUS:
 {node_summary}
 
-Analyze the situation and take actions to manage the crowd. Use your tools to check hotspots, predict flow, issue rewards, and redistribute crowd as needed. Explain your reasoning."""
+FIRST RESPONDERS:
+{resp_text}
+
+ACTIVE INCIDENTS: {inc_text}
+
+Analyze the situation and take actions to manage the crowd. Use your tools to check hotspots, predict flow, issue rewards, redistribute crowd, and deploy first responders as needed. If zones are critical, consider deploying police or medics. Explain your reasoning."""
 
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
@@ -300,6 +384,8 @@ def _fallback_decide():
     if not hotspots:
         reasoning_parts.append("✅ No congestion hotspots detected. Stadium is flowing smoothly.")
     else:
+        critical_count = sum(1 for h in hotspots if h["congestion"] == "critical")
+
         for hot in hotspots:
             nid = hot["id"]
             connections = hot["connections"]
@@ -325,6 +411,26 @@ def _fallback_decide():
                     "args": {"from_node": nid, "to_node": best_target, "count": 15},
                     "result": result,
                 })
+
+            # Deploy responders for critical zones
+            if hot["congestion"] == "critical":
+                reasoning_parts.append(f"🚔 Deploying police to {hot['name']} for crowd control.")
+                deploy_result = _simulator.deploy_responders(nid, "police", 2)
+                actions.append({
+                    "function": "deploy_emergency_responders",
+                    "args": {"node_id": nid, "responder_type": "police", "count": 2},
+                    "result": deploy_result,
+                })
+
+        # If multiple critical zones, create incident
+        if critical_count >= 2:
+            reasoning_parts.append(f"🚨 Multiple critical zones ({critical_count}) — creating security incident.")
+            inc = _simulator.create_incident(hotspots[0]["id"], "security", "code_yellow")
+            actions.append({
+                "function": "create_incident_report",
+                "args": {"node_id": hotspots[0]["id"], "incident_type": "security", "severity": "code_yellow"},
+                "result": inc,
+            })
 
     decision = {
         "tick": state["tick"],

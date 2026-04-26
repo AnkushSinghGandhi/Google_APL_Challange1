@@ -26,7 +26,7 @@ STADIUM_NODES = {
         "name": "Gate C (South Exit)",
         "type": "gate",
         "capacity": 180,
-        "connections": ["main_stand", "restrooms"],
+        "connections": ["main_stand", "restrooms", "medical_tent"],
         "attraction": {"pre_event": 0.4, "during_event": 0.05, "halftime": 0.05, "post_event": 0.9},
     },
     "main_stand": {
@@ -61,8 +61,15 @@ STADIUM_NODES = {
         "name": "Restrooms",
         "type": "amenity",
         "capacity": 60,
-        "connections": ["main_stand", "east_stand", "gate_c"],
+        "connections": ["main_stand", "east_stand", "gate_c", "medical_tent"],
         "attraction": {"pre_event": 0.2, "during_event": 0.25, "halftime": 0.8, "post_event": 0.2},
+    },
+    "medical_tent": {
+        "name": "Medical Tent",
+        "type": "emergency",
+        "capacity": 40,
+        "connections": ["gate_c", "restrooms"],
+        "attraction": {"pre_event": 0.0, "during_event": 0.05, "halftime": 0.05, "post_event": 0.1},
     },
 }
 
@@ -82,3 +89,20 @@ REWARD_TYPES = {
     "priority_exit": {"label": "🚪 Priority Exit Pass", "points": 50},
     "free_item": {"label": "🎁 Free Snack Voucher", "points": 75},
 }
+
+# --- First Responder Types ---
+RESPONDER_TYPES = {
+    "firefighter": {"label": "🚒 Firefighter", "emoji": "🚒", "color": "#f97316", "default_available": 12},
+    "police": {"label": "🚔 Police", "emoji": "🚔", "color": "#6366f1", "default_available": 15},
+    "medic": {"label": "🚑 Medic", "emoji": "🚑", "color": "#22d3ee", "default_available": 10},
+}
+
+# --- Incident Severity Levels ---
+INCIDENT_SEVERITIES = {
+    "code_green": {"label": "✅ Code Green", "level": 0, "color": "#34a853", "description": "Normal — Monitoring"},
+    "code_yellow": {"label": "⚠️ Code Yellow", "level": 1, "color": "#fbbc04", "description": "Alert — Deploy police to hotspots"},
+    "code_red": {"label": "🚨 Code Red", "level": 2, "color": "#ea4335", "description": "Full Emergency — Deploy all, evacuate"},
+}
+
+# --- Incident Types ---
+INCIDENT_TYPES = ["fire", "medical", "security", "stampede", "structural", "weather", "other"]
